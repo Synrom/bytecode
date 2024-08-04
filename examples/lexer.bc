@@ -1,0 +1,8 @@
+#thisisall a comment .12r12/()="'
+"this \" ' should all # still be a string"
+if hallo.cond("", '232', 12.22): # comment about this line : )
+  i += 124
+  t *= 12
+ 12412
+
+  
