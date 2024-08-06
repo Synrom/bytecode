@@ -1,10 +1,12 @@
+#include "lexer/lexer.hpp"
+#include "parser/parser.hpp"
+
 #include <iostream>
 #include <fstream>
 #include <string>
 #include <streambuf>
 #include <memory>
 #include <string.h>
-#include "lexer/lexer.hpp"
 
 using namespace std;
 
@@ -23,6 +25,10 @@ int main(int argc, char* argv[])
     Lexer lexer(code_string);
     lexer.parse();
     lexer.tokens.print();
+
+    /* Parse an expression */
+    Parser parser = Parser(lexer.tokens);
+    parser.parse_expression();
 
     return 0;
 }

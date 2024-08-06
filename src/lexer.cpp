@@ -180,7 +180,7 @@ void Lexer::submit_location_record(Range range, Token::Type type) {
     range.endidx = pos;
     range.end.column = column;
     range.end.row = lineno;
-    tokens.tokens.push_back(Token(type, range, code_string));
+    tokens->tokens.push_back(Token(type, range, code_string));
 }
 
 char Lexer::get(size_t idx) {
@@ -188,8 +188,8 @@ char Lexer::get(size_t idx) {
 }
 
 void Lexer::pop_indentations() {
-    while(!tokens.tokens.empty() && tokens.tokens.back().type == Token::Indentation)
-        tokens.tokens.pop_back();
+    while(!tokens->tokens.empty() && tokens->tokens.back().type == Token::Indentation)
+        tokens->tokens.pop_back();
 }
 
 std::string Token::literal() {

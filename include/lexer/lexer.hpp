@@ -1,3 +1,6 @@
+#ifndef LEXER_H
+#define LEXER_H
+
 #include "lexer/tokens.hpp"
 #include <memory>
 #include <string>
@@ -6,9 +9,9 @@
 
 class Lexer{
 public:
-    Lexer(std::shared_ptr<std::string> code_string) : code_string(code_string), pos(0), lineno(0), column(0) {}
+    Lexer(std::shared_ptr<std::string> code_string) : code_string(code_string), pos(0), lineno(0), column(0), tokens(new TokenSequence()) {}
     void parse();
-    TokenSequence tokens;
+    std::shared_ptr<TokenSequence> tokens;
 
 private:
     std::shared_ptr<std::string> code_string;
@@ -33,3 +36,5 @@ private:
     char get(size_t idx);
     void pop_indentations();
 };
+
+#endif

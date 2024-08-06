@@ -1,3 +1,6 @@
+#ifndef TOKENS_H
+#define TOKENS_H
+
 #include "location.hpp"
 #include <string>
 #include <vector>
@@ -35,3 +38,12 @@ public:
     std::vector<Token> tokens;
     void print();
 };
+
+class TokenRange {
+public:
+    TokenRange(std::shared_ptr<TokenSequence> tokens, size_t start, size_t end) : tokens(tokens), start(start), end(end) {}
+    std::shared_ptr<TokenSequence> tokens;
+    size_t start, end;
+};
+
+#endif

@@ -1,3 +1,6 @@
+#ifndef LOCATION_H
+#define LOCATION_H
+
 #include <cstddef>
 
 class Location {
@@ -15,3 +18,5 @@ public:
     /* start and end idx in original string */
     size_t startidx, endidx;
 };
+
+#endif
