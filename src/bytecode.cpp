@@ -24,7 +24,7 @@ int main(int argc, char* argv[])
     /* Lex program and print tokens */
     Lexer lexer(code_string);
     lexer.parse();
-    lexer.tokens.print();
+    lexer.tokens->print();
 
     /* Parse an expression */
     Parser parser = Parser(lexer.tokens);
