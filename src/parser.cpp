@@ -3,78 +3,110 @@
 #include <memory>
 #include <iostream>
 
-std::unique_ptr<ast::Expression> Parser::parse_expression() {
+std::shared_ptr<ast::Expression> Parser::parse_expression() {
     /* Expression = Factor | Factor + Expression | Factor - Expression */
-    std::unique_ptr<ast::Expression> factor = parse_factor();
+    TokenRange range = start_token_range();
+    std::shared_ptr<ast::Expression> factor = parse_factor();
     if(parse_char('+')) {
-        std::unique_ptr<ast::Expression> right = parse_expression();
-        return std::unique_ptr<ast::Expression>(new ast::BinaryOp(std::move(factor), std::move(right), ast::BinaryOp::Add, token_range()));
+        std::shared_ptr<ast::Expression> right = parse_expression();
+        end_token_range(range);
+        return ast::BinaryOp::create(factor, right, ast::BinaryOp::Add, range, NULL);
     } else if(parse_char('-')) {
-        std::unique_ptr<ast::Expression> right = parse_expression();
-        return std::unique_ptr<ast::Expression>(new ast::BinaryOp(std::move(factor), std::move(right), ast::BinaryOp::Min, token_range()));
+        std::shared_ptr<ast::Expression> right = parse_expression();
+        end_token_range(range);
+        return ast::BinaryOp::create(factor, right, ast::BinaryOp::Min, range, NULL);
     }
     return factor;
 }
 
-std::unique_ptr<ast::Expression> Parser::parse_factor() {
+std::shared_ptr<ast::Expression> Parser::parse_factor() {
     /* Factor     = UnaryOp | UnaryOp * Factor | UnaryOp / Factor */
-    std::unique_ptr<ast::Expression> unaryop = parse_unaryop();
+    TokenRange range = start_token_range();
+    std::shared_ptr<ast::Expression> unaryop = parse_unaryop();
     if(parse_char('*')) {
-        std::unique_ptr<ast::Expression> right = parse_factor();
-        return std::unique_ptr<ast::Expression>(new ast::BinaryOp(std::move(unaryop), std::move(right), ast::BinaryOp::Mul, token_range()));
+        std::shared_ptr<ast::Expression> right = parse_factor();
+        end_token_range(range);
+        return ast::BinaryOp::create(unaryop, right, ast::BinaryOp::Mul, range, NULL);
     } else if(parse_char('/')) {
-        std::unique_ptr<ast::Expression> right = parse_factor();
-        return std::unique_ptr<ast::Expression>(new ast::BinaryOp(std::move(unaryop), std::move(right), ast::BinaryOp::Div, token_range()));
+        std::shared_ptr<ast::Expression> right = parse_factor();
+        end_token_range(range);
+        return ast::BinaryOp::create(unaryop, right, ast::BinaryOp::Div, range, NULL);
     }
     return unaryop;
 }
 
-std::unique_ptr<ast::Expression> Parser::parse_unaryop() {
+std::shared_ptr<ast::Expression> Parser::parse_unaryop() {
     /* UnaryOp    = Value | -Value */
-    if(parse_char('-'))
-        return std::unique_ptr<ast::Expression>(new ast::UnaryOp(parse_value(), token_range()));
+    TokenRange range = start_token_range();
+    if(parse_char('-')) {
+        std::shared_ptr<ast::Expression> value = parse_value();
+        end_token_range(range);
+        return ast::UnaryOp::create(value, range, NULL);
+    }
     return parse_value();
 }
 
-std::unique_ptr<ast::Expression> Parser::parse_value() {
-    /* Value      = Number | String | Access */
+std::shared_ptr<ast::Expression> Parser::parse_value() {
+    /* Value      = Number | String | Access | (Expression) */
+    TokenRange range = start_token_range();
     if(next().type == Token::Number) {
-        return std::unique_ptr<ast::Expression>(new ast::Number(parse_token(), token_range()));
+        Token &token = parse_token();
+        end_token_range(range);
+        return std::shared_ptr<ast::Expression>(new ast::Number(token, range, NULL));
     } else if(next().type == Token::String) {
-        return std::unique_ptr<ast::Expression>(new ast::String(parse_token(), token_range()));
+        Token &token = parse_token();
+        end_token_range(range);
+        return std::shared_ptr<ast::Expression>(new ast::String(token, range, NULL));
+    } else if(parse_char('(')) {
+        std::shared_ptr<ast::Expression> expr = parse_expression();
+        parse_char_or_panic(')');
+        return expr;
     }
-    return parse_access();
+    return parse_identifier_access();
 }
 
-std::unique_ptr<ast::Access> Parser::parse_access() {
-    /* Access     = Identifier | Identifier.Access | Identifier[Expression] | Identifier[Expression].Access | Identifier(Parameters) */
-    std::unique_ptr<ast::Access> identifier = parse_identifier();
-    if(parse_char('.'))
-        return std::unique_ptr<ast::Access>(new ast::ClassAccess(std::move(identifier), std::move(parse_access()), token_range()));
-    else if(parse_char('[')) {
-        std::unique_ptr<ast::Expression> index = parse_expression();
+std::shared_ptr<ast::Access> Parser::parse_identifier_access() {
+    /* Access     = IdentifierAccess | Identifier */
+    TokenRange range = start_token_range();
+    std::shared_ptr<ast::Access> identifier = parse_identifier();
+    return parse_access(identifier);
+}
+
+std::shared_ptr<ast::Access> Parser::parse_access(std::shared_ptr<ast::Access> chain) {
+    /* Access     = None | .IdentifierAccess | [Expression]Access | (Parameters)Access */
+    TokenRange range = start_token_range(chain);
+    if(parse_char('.')) {
+        std::shared_ptr<ast::Access> access = parse_identifier_access();
+        end_token_range(range);
+        return ast::ClassAccess::create(chain, access, range, NULL);
+    } else if(parse_char('[')) {
+        std::shared_ptr<ast::Expression> index = parse_expression();
         parse_char_or_panic(']');
-        std::unique_ptr<ast::Access> index_access = std::unique_ptr<ast::IndexAccess>(new ast::IndexAccess(std::move(identifier), std::move(index), token_range()));
-        if(parse_char('.'))
-            return std::unique_ptr<ast::Access>(new ast::ClassAccess(std::move(index_access), std::move(parse_access()), token_range()));
-        return index_access;
+        end_token_range(range);
+        std::shared_ptr<ast::Access> index_access = ast::IndexAccess::create(chain, index, range, NULL);
+        return parse_access(index_access);
     } else if(parse_char('(')) {
-        std::unique_ptr<ast::FunctionCall> fcall = std::unique_ptr<ast::FunctionCall>(new ast::FunctionCall(std::move(identifier), token_range()));
+        std::vector<std::shared_ptr<ast::Expression>> parameters;
         bool first = true;
         while(!parse_char(')')) {
             if(!first)
                 parse_char_or_panic(',');
             else
                 first = false;
-            fcall->add_parameter(parse_expression());
+            parameters.push_back(parse_expression());
         }
-        return fcall;
+        end_token_range(range);
+        std::shared_ptr<ast::Access> fcall = ast::FunctionCall::create(chain, range, NULL, parameters);
+        return parse_access(fcall);
     }
-    return identifier;
+    return chain;
 }
 
-std::unique_ptr<ast::Access> Parser::parse_identifier() {
-    return std::unique_ptr<ast::Access>(new ast::Identifier(parse_token(), token_range()));
+std::shared_ptr<ast::Access> Parser::parse_identifier() {
+    TokenRange range = start_token_range();
+    Token &token = parse_token();
+    end_token_range(range);
+    return std::shared_ptr<ast::Access>(new ast::Identifier(token, range, NULL));
 }
 
 bool Parser::parse_char(char c) {
@@ -92,13 +124,7 @@ Token &Parser::parse_token() {
 }
 
 Token &Parser::next() {
-    return tokens->tokens[range.end];
-}
-
-TokenRange Parser::token_range() {
-    TokenRange current = TokenRange(tokens, range.start, range.end - 1); // range.end-1 because end points to the next token
-    range.start = range.end;
-    return current;
+    return tokens->tokens[position];
 }
 
 void Parser::parse_char_or_panic(char c) {
@@ -108,5 +134,17 @@ void Parser::parse_char_or_panic(char c) {
 }
 
 void Parser::increase() {
-    range.end++;
+    position++;
+}
+
+TokenRange Parser::start_token_range() {
+    return TokenRange(tokens, position, position);
+}
+
+TokenRange Parser::start_token_range(std::shared_ptr<ast::Node> node) {
+    return TokenRange(tokens, node->tokens.start, position);
+}
+
+void Parser::end_token_range(TokenRange &range) {
+    range.end = position - 1;
 }

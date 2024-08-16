@@ -19,8 +19,9 @@ public:
     };
     Token(Type type, Range location, std::shared_ptr<std::string> code_string) : type(type), location(location), code_string(code_string) {}
     Type type;
-    std::string literal();
+    std::string literal() const;
     void print();
+    Range location;
 private:
     std::map<Type, std::string> type_strings = {
         {Type::String, "string"},
@@ -29,13 +30,15 @@ private:
         {Type::Newline, "newline"},
         {Type::Word, "word"},
     };
-    Range location;
     std::shared_ptr<std::string> code_string;
 };
 
 class TokenSequence {
 public:
+    TokenSequence(std::string filepath) : filepath(filepath) {}
+    TokenSequence(char *filepath) : filepath(filepath) {}
     std::vector<Token> tokens;
+    std::string filepath;
     void print();
 };
 

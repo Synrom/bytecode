@@ -126,6 +126,8 @@ bool does_char_occur(char c, const char *string) {
 }
 
 bool Lexer::parse_digit() {
+    if(pos >= code_string->length())
+        return false;
     if(is_digit(get(pos))) {
         increase_position();
         return true;
@@ -192,7 +194,7 @@ void Lexer::pop_indentations() {
         tokens->tokens.pop_back();
 }
 
-std::string Token::literal() {
+std::string Token::literal() const {
     return code_string->substr(location.startidx, location.endidx - location.startidx + 1);
 }
 

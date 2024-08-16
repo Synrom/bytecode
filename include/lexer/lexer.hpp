@@ -5,11 +5,12 @@
 #include <memory>
 #include <string>
 
-#define LEXER_WORD_ENDING_CHARS ".(){}[],1234567890\n\"'\t #-+*/%:\n"
+#define LEXER_WORD_ENDING_CHARS ".(){}[],\n\"'\t #-+*/%:\n "
 
 class Lexer{
 public:
-    Lexer(std::shared_ptr<std::string> code_string) : code_string(code_string), pos(0), lineno(0), column(0), tokens(new TokenSequence()) {}
+    Lexer(std::shared_ptr<std::string> code_string, char *filepath) : tokens(new TokenSequence(filepath)), code_string(code_string), pos(0), lineno(0),   column(0) {}
+    Lexer(std::shared_ptr<std::string> code_string, std::string filepath) : tokens(new TokenSequence(filepath)), code_string(code_string), pos(0), lineno(0), column(0) {}
     void parse();
     std::shared_ptr<TokenSequence> tokens;
 
