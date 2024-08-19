@@ -2,6 +2,7 @@
 #define AST_H
 
 #include "lexer/tokens.hpp"
+#include "runtime/bytecode.hpp"
 
 #include <memory>
 #include <vector>
@@ -63,7 +64,7 @@ public:
     void visit(Visitor &visitor) override {
         visitor.visit_binary_op(*this);
     }
-
+    
     std::string string_op();
 
 private:
@@ -92,8 +93,10 @@ public:
 
 class Number : public Literal {
 public:
-    Number(const Token &token, TokenRange tokens, std::shared_ptr<Node> parent) : Literal(token, tokens, parent) {}
-    int number;
+    Number(const Token &token, TokenRange tokens, std::shared_ptr<Node> parent) : Literal(token, tokens, parent) {
+        number = std::stof(token.literal());
+    }
+    float number;
 
     void visit(Visitor &visitor) override {
         visitor.visit_number(*this);

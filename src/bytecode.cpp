@@ -1,5 +1,6 @@
 #include "lexer/lexer.hpp"
 #include "parser/parser.hpp"
+#include "runtime/compile.hpp"
 
 #include <iostream>
 #include <fstream>
@@ -24,14 +25,29 @@ int main(int argc, char* argv[])
     /* Lex program and print tokens */
     Lexer lexer(code_string, argv[1]);
     lexer.parse();
+    cout << "Lexemes:" << endl;
     lexer.tokens->print();
+    cout << endl;
     cout << endl;
 
     /* Parse an expression */
     Parser parser = Parser(lexer.tokens);
     shared_ptr<ast::Expression> expr = parser.parse_expression();
+    cout << "AST:" << endl;
     expr->print();
     cout << endl;
+
+    /* Compile AST to Bytecode */
+    BytecodeCompiler compiler;
+    expr->visit(compiler);
+    runtime::Code code = compiler.code();
+    cout << "Bytecodes:" << endl;
+    code.print();
+    cout << endl;
+
+    /* execute code */
+    runtime::Value result = code.run();
+    cout << "Ran code with result: " << result.to_string() << endl;
 
     return 0;
 }
