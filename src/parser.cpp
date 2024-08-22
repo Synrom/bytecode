@@ -3,6 +3,22 @@
 #include <memory>
 #include <iostream>
 
+std::shared_ptr<ast::Node> expand_leftmost(std::shared_ptr<ast::Node> root, std::shared_ptr<ast::Node> item) {
+    std::shared_ptr<ast::Node> traverse = root->get_left_child();
+    while (traverse and traverse->presedence >= item->presedence and traverse->get_left_child() != NULL)
+        traverse = traverse->get_left_child();
+    if (!traverse or !traverse->parent) {
+        item->set_right_child(root);
+        return item;
+    }
+    std::shared_ptr<ast::Node> parent = traverse->parent;
+    parent->set_left_child(item);
+    item->parent = parent;
+    item->set_right_child(traverse);
+    traverse->parent = item;
+    return root;
+}
+
 std::shared_ptr<ast::Expression> Parser::parse_expression() {
     /* Expression = Factor | Factor + Expression | Factor - Expression */
     TokenRange range = start_token_range();
@@ -10,11 +26,13 @@ std::shared_ptr<ast::Expression> Parser::parse_expression() {
     if(parse_char('+')) {
         std::shared_ptr<ast::Expression> right = parse_expression();
         end_token_range(range);
-        return ast::BinaryOp::create(factor, right, ast::BinaryOp::Add, range, NULL);
+        std::shared_ptr<ast::Expression> binary = ast::BinaryOp::create(factor, NULL, ast::BinaryOp::Add, range, NULL);
+        return std::dynamic_pointer_cast<ast::Expression>(expand_leftmost(right, binary));
     } else if(parse_char('-')) {
         std::shared_ptr<ast::Expression> right = parse_expression();
         end_token_range(range);
-        return ast::BinaryOp::create(factor, right, ast::BinaryOp::Min, range, NULL);
+        std::shared_ptr<ast::Expression> binary = ast::BinaryOp::create(factor, NULL, ast::BinaryOp::Min, range, NULL);
+        return std::dynamic_pointer_cast<ast::Expression>(expand_leftmost(right, binary));
     }
     return factor;
 }
@@ -148,3 +166,4 @@ TokenRange Parser::start_token_range(std::shared_ptr<ast::Node> node) {
 void Parser::end_token_range(TokenRange &range) {
     range.end = position - 1;
 }
+

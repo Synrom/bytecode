@@ -7,35 +7,43 @@ using namespace ast;
 
 std::shared_ptr<BinaryOp> BinaryOp::create(std::shared_ptr<Expression> left, std::shared_ptr<Expression> right, Operation op, TokenRange tokens, std::shared_ptr<Node> parent) {
     std::shared_ptr<BinaryOp> ast = std::shared_ptr<BinaryOp>(new BinaryOp(left, right, op, tokens, parent));
-    left->parent = ast;
-    right->parent = ast;
+    if (left)
+        left->parent = ast;
+    if (right)
+        right->parent = ast;
     return ast;
 }
 
 std::shared_ptr<UnaryOp> UnaryOp::create(std::shared_ptr<Expression> expr, TokenRange tokens, std::shared_ptr<Node> parent) {
     std::shared_ptr<UnaryOp> ast = std::shared_ptr<UnaryOp>(new UnaryOp(expr, tokens, parent));
-    expr->parent = ast;
+    if (expr)
+        expr->parent = ast;
     return ast;
 }
 
 std::shared_ptr<ClassAccess> ClassAccess::create(std::shared_ptr<Access> left, std::shared_ptr<Access> right, TokenRange tokens, std::shared_ptr<Node> parent) {
     std::shared_ptr<ClassAccess> ast = std::shared_ptr<ClassAccess>(new ClassAccess(left, right, tokens, parent));
-    left->parent = ast;
-    right->parent = ast;
+    if (left)
+        left->parent = ast;
+    if (right)
+        right->parent = ast;
     return ast;
 }
 
 
 std::shared_ptr<IndexAccess> IndexAccess::create(std::shared_ptr<Access> left, std::shared_ptr<Expression> index, TokenRange tokens, std::shared_ptr<Node> parent) {
     std::shared_ptr<IndexAccess> ast = std::shared_ptr<IndexAccess>(new IndexAccess(left, index, tokens, parent));
-    left->parent = ast;
-    index->parent = ast;
+    if (left)
+        left->parent = ast;
+    if (index)
+        index->parent = ast;
     return ast;
 }
 
 std::shared_ptr<FunctionCall> FunctionCall::create(std::shared_ptr<Access> name, TokenRange tokens, std::shared_ptr<Node> parent, std::vector<std::shared_ptr<Expression>> parameters) {
     std::shared_ptr<FunctionCall> ast = std::shared_ptr<FunctionCall>(new FunctionCall(name, tokens, parent, parameters));
-    name->parent = ast;
+    if (name)
+        name->parent = ast;
     return ast;
 }
 

@@ -7,6 +7,12 @@
 #include <memory>
 #include <vector>
 
+#define ACCESS_PRESEDENCDE 1
+#define LITERAL_PRESEDENCDE 1
+#define UNARY_OP_PRESEDENCE 2
+#define FACTOR_PRESEDENCE 3
+#define SUM_PRESEDENCE 3
+
 namespace ast {
 
 class BinaryOp;
@@ -33,18 +39,27 @@ public:
 class Node{
 public:
     Node (TokenRange tokens) : tokens(tokens), parent(NULL) {}
-    Node (TokenRange tokens, std::shared_ptr<Node> parent) : tokens(tokens), parent(parent) {}
+    Node (TokenRange tokens, std::shared_ptr<Node> parent, unsigned int presedence) : tokens(tokens), parent(parent), presedence(presedence) {}
     TokenRange tokens;
     std::shared_ptr<Node> parent;
+    unsigned int presedence;
 
     virtual void visit(Visitor &) = 0;
+    virtual std::shared_ptr<Node> get_left_child() = 0;
+    virtual std::shared_ptr<Node> get_right_child() = 0;
+    virtual void set_left_child(std::shared_ptr<Node> ) {
+        std::cout << "Error: Trying to set left child of terminal node\n";
+    }
+    virtual void set_right_child(std::shared_ptr<Node> ) {
+        std::cout << "Error: Trying to set right child of terminal node\n";
+    }
     void print();
 };
 
 class Expression : public Node {
 public:
     Expression (TokenRange tokens) : Node(tokens) {}
-    Expression (TokenRange tokens, std::shared_ptr<Node> parent) : Node(tokens, parent) {}
+    Expression (TokenRange tokens, std::shared_ptr<Node> parent, unsigned int presedence) : Node(tokens, parent, presedence) {}
 
 };
 
@@ -67,8 +82,33 @@ public:
     
     std::string string_op();
 
+    std::shared_ptr<Node> get_left_child() override {
+        return left;
+    }
+    std::shared_ptr<Node> get_right_child() override {
+        return right;
+    }
+    void set_left_child(std::shared_ptr<Node> node) override {
+        left = std::dynamic_pointer_cast<Expression>(node);
+    }
+    void set_right_child(std::shared_ptr<Node> node) override {
+        right = std::dynamic_pointer_cast<Expression>(node);
+    }
 private:
-    BinaryOp(std::shared_ptr<Expression> left, std::shared_ptr<Expression> right, Operation op, TokenRange tokens, std::shared_ptr<Node> parent) : Expression(tokens, parent), left(left), right(right), op(op) {}
+    BinaryOp(std::shared_ptr<Expression> left, std::shared_ptr<Expression> right, Operation op, TokenRange tokens, std::shared_ptr<Node> parent) : Expression(tokens, parent, op_to_presedence(op)), left(left), right(right), op(op) {}
+    static unsigned int op_to_presedence(Operation op) {
+        switch(op) {
+            case Mul:
+            case Div:
+                return FACTOR_PRESEDENCE;
+            case Add:
+            case Min:
+                return SUM_PRESEDENCE;
+            default:
+                std::cout << "Error: Unknown binary op\n";
+                return SUM_PRESEDENCE;
+        }
+    }
 };
 
 class UnaryOp : public Expression {
@@ -80,14 +120,34 @@ public:
         visitor.visit_unary_op(*this);
     }
 
+    std::shared_ptr<Node> get_left_child() override {
+        return expr;
+    }
+    std::shared_ptr<Node> get_right_child() override {
+        return expr;
+    }
+    void set_left_child(std::shared_ptr<Node> node) override {
+        expr = std::dynamic_pointer_cast<Expression>(node);
+    }
+    void set_right_child(std::shared_ptr<Node> node) override {
+        expr = std::dynamic_pointer_cast<Expression>(node);
+    }
+
 private:
-    UnaryOp(std::shared_ptr<Expression> expr, TokenRange tokens, std::shared_ptr<Node> parent) :  Expression(tokens, parent), expr(expr) {}
+    UnaryOp(std::shared_ptr<Expression> expr, TokenRange tokens, std::shared_ptr<Node> parent) :  Expression(tokens, parent, UNARY_OP_PRESEDENCE), expr(expr) {}
 };
 
 class Literal: public Expression{
 public:
     const Token &token;
-    Literal(const Token &token, TokenRange tokens, std::shared_ptr<Node> parent) :  Expression(tokens, parent), token(token) {}
+    Literal(const Token &token, TokenRange tokens, std::shared_ptr<Node> parent) :  Expression(tokens, parent, LITERAL_PRESEDENCDE), token(token) {}
+
+    std::shared_ptr<Node> get_left_child() override {
+        return NULL;
+    }
+    std::shared_ptr<Node> get_right_child() override {
+        return NULL;
+    }
 
 };
 
@@ -114,7 +174,7 @@ public:
 
 class Access: public Expression {
 public:
-    Access(TokenRange tokens, std::shared_ptr<Node> parent) : Expression(tokens, parent) {}
+    Access(TokenRange tokens, std::shared_ptr<Node> parent) : Expression(tokens, parent, ACCESS_PRESEDENCDE) {}
 
 };
 
@@ -125,6 +185,13 @@ public:
     void visit(Visitor &visitor) override {
         visitor.visit_identifier(*this);
     }
+
+    std::shared_ptr<Node> get_left_child() override {
+        return NULL;
+    }
+    std::shared_ptr<Node> get_right_child() override {
+        return NULL;
+    }
 };
 
 class ClassAccess : public Access {
@@ -134,6 +201,19 @@ public:
 
     void visit(Visitor &visitor) override {
         visitor.visit_class_access(*this);
+    }
+
+    std::shared_ptr<Node> get_left_child() override {
+        return left;
+    }
+    std::shared_ptr<Node> get_right_child() override {
+        return right;
+    }
+    void set_left_child(std::shared_ptr<Node> node) override {
+        left = std::dynamic_pointer_cast<Access>(node);
+    }
+    void set_right_child(std::shared_ptr<Node> node) override {
+        right = std::dynamic_pointer_cast<Access>(node);
     }
 private:
     ClassAccess(std::shared_ptr<Access> left, std::shared_ptr<Access> right, TokenRange tokens, std::shared_ptr<Node> parent) : Access(tokens, parent), left(left), right(right) {}
@@ -149,6 +229,18 @@ public:
         visitor.visit_index_access(*this);
     }
 
+    std::shared_ptr<Node> get_left_child() override {
+        return left;
+    }
+    std::shared_ptr<Node> get_right_child() override {
+        return index;
+    }
+    void set_left_child(std::shared_ptr<Node> node) override {
+        left = std::dynamic_pointer_cast<Access>(node);
+    }
+    void set_right_child(std::shared_ptr<Node> node) override {
+        index = std::dynamic_pointer_cast<Expression>(node);
+    }
 private:
     IndexAccess(std::shared_ptr<Access> left, std::shared_ptr<Expression> index, TokenRange tokens, std::shared_ptr<Node> parent) : Access(tokens,parent), left(left), index(index) {}
 };
@@ -164,6 +256,15 @@ public:
         visitor.visit_function_call(*this);
     }
 
+    std::shared_ptr<Node> get_left_child() override {
+        return name;
+    }
+    std::shared_ptr<Node> get_right_child() override {
+        return NULL;
+    }
+    void set_left_child(std::shared_ptr<Node> node) override {
+        name = std::dynamic_pointer_cast<Access>(node);
+    }
 private:
     FunctionCall(std::shared_ptr<Access> name, TokenRange tokens, std::shared_ptr<Node> parent, std::vector<std::shared_ptr<Expression>> parameters) : Access(tokens, parent), name(name), parameters(parameters) {}
 };
