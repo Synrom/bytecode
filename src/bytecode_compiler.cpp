@@ -55,15 +55,7 @@ runtime::Code BytecodeCompiler::code() {
 }
 
 ssize_t BytecodeCompiler::variable_offset_or_create(std::shared_ptr<ast::Identifier> node) {
-    std::string identifier = node->token.literal();
-    auto it = std::find(variables.begin(), variables.end(), identifier);
-
-    if(it != variables.end()) {
-        return std::distance(variables.begin(), it);
-    } else {
-        variables.push_back(identifier);
-        return variables.size() - 1;
-    }
+    return variable_offset_or_create(*node.get());
 }
 
 ssize_t BytecodeCompiler::variable_offset_or_create(const ast::Identifier &node) {
