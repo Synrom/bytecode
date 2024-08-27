@@ -32,14 +32,16 @@ int main(int argc, char* argv[])
 
     /* Parse an expression */
     Parser parser = Parser(lexer.tokens);
-    shared_ptr<ast::Expression> expr = parser.parse_expression();
+    vector<shared_ptr<ast::Statement>> block = parser.parse_block();
     cout << "AST:" << endl;
-    expr->print();
+    for(auto stmt = block.begin(); stmt != block.end(); stmt++) {
+        stmt->get()->print();
+    }
     cout << endl;
 
     /* Compile AST to Bytecode */
     BytecodeCompiler compiler;
-    expr->visit(compiler);
+    compiler.compile(block);
     runtime::Code code = compiler.code();
     cout << "Bytecodes:" << endl;
     code.print();

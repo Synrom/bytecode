@@ -9,8 +9,10 @@
 namespace runtime {
 
 class Code {
+private:
+    ssize_t num_variables;
 public:
-    Code(std::vector<std::unique_ptr<Bytecode>> && bytecodes) : bytecodes(std::move(bytecodes)) {}
+    Code(std::vector<std::unique_ptr<Bytecode>> && bytecodes, ssize_t variables) : num_variables(variables), bytecodes(std::move(bytecodes)) {}
     std::vector<std::unique_ptr<Bytecode>> bytecodes;
     Value run();
     void print();

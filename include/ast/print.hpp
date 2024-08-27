@@ -30,7 +30,8 @@ public:
     void visit_class_access(ClassAccess &node) override;
     void visit_index_access(IndexAccess &node) override;
     void visit_function_call(FunctionCall &node) override;
-
+    void visit_return_stmt(Return &node) override;
+    void visit_assign_stmt(Assign &node) override;
 };
 
 #endif

@@ -4,7 +4,7 @@
 #include <iostream>
 
 std::shared_ptr<ast::Node> expand_leftmost(std::shared_ptr<ast::Node> root, std::shared_ptr<ast::Node> item) {
-    std::shared_ptr<ast::Node> traverse = root->get_left_child();
+    std::shared_ptr<ast::Node> traverse;
     while (traverse and traverse->presedence >= item->presedence and traverse->get_left_child() != NULL)
         traverse = traverse->get_left_child();
     if (!traverse or !traverse->parent) {
@@ -17,6 +17,33 @@ std::shared_ptr<ast::Node> expand_leftmost(std::shared_ptr<ast::Node> root, std:
     item->set_right_child(traverse);
     traverse->parent = item;
     return root;
+}
+
+std::vector<std::shared_ptr<ast::Statement>> Parser::parse_block() {
+    bool seperated = true;
+    std::vector<std::shared_ptr<ast::Statement>> block;
+    while (seperated) {
+        seperated = false;
+        block.push_back(parse_statement());
+        seperated = parse_newline();
+        while(parse_newline()) ;
+    }
+    return block;
+}
+
+std::shared_ptr<ast::Statement> Parser::parse_statement() {
+    /* Statement        = IdentifierAcess = Expression | return Expression */
+    TokenRange range = start_token_range();
+    if (parse_string(std::string("return"))) {
+        std::shared_ptr<ast::Expression> expr = parse_expression();
+        end_token_range(range);
+        return ast::Return::create(expr, range, NULL);
+    }
+    std::shared_ptr<ast::Access> identifier = Parser::parse_identifier_access();
+    parse_char_or_panic('=');
+    std::shared_ptr<ast::Expression> expr = parse_expression();
+    end_token_range(range);
+    return ast::Assign::create(identifier, expr, NULL, range);
 }
 
 std::shared_ptr<ast::Expression> Parser::parse_expression() {
@@ -44,11 +71,13 @@ std::shared_ptr<ast::Expression> Parser::parse_factor() {
     if(parse_char('*')) {
         std::shared_ptr<ast::Expression> right = parse_factor();
         end_token_range(range);
-        return ast::BinaryOp::create(unaryop, right, ast::BinaryOp::Mul, range, NULL);
+        std::shared_ptr<ast::Expression> binary = ast::BinaryOp::create(unaryop, NULL, ast::BinaryOp::Mul, range, NULL);
+        return std::dynamic_pointer_cast<ast::Expression>(expand_leftmost(right, binary));
     } else if(parse_char('/')) {
         std::shared_ptr<ast::Expression> right = parse_factor();
         end_token_range(range);
-        return ast::BinaryOp::create(unaryop, right, ast::BinaryOp::Div, range, NULL);
+        std::shared_ptr<ast::Expression> binary = ast::BinaryOp::create(unaryop, NULL, ast::BinaryOp::Div, range, NULL);
+        return std::dynamic_pointer_cast<ast::Expression>(expand_leftmost(right, binary));
     }
     return unaryop;
 }
@@ -135,7 +164,15 @@ bool Parser::parse_char(char c) {
     return false;
 }
 
-Token &Parser::parse_token() {
+bool Parser::parse_string(const std::string &s) {
+    if(next().type == Token::Word && next().literal() == s) {
+        increase();
+        return true;
+    }
+    return false;
+}
+
+Token & Parser::parse_token() {
     Token &token = next();
     increase();
     return token;
@@ -167,3 +204,10 @@ void Parser::end_token_range(TokenRange &range) {
     range.end = position - 1;
 }
 
+bool Parser::parse_newline() {
+    if (position <= tokens->tokens.size() and tokens->tokens[position].type == Token::Newline) {
+        increase();
+        return true;
+    }
+    return false;
+}

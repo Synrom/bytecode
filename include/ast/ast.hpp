@@ -12,6 +12,7 @@
 #define UNARY_OP_PRESEDENCE 2
 #define FACTOR_PRESEDENCE 3
 #define SUM_PRESEDENCE 3
+#define STMT_PRESEDENCE 4
 
 namespace ast {
 
@@ -23,6 +24,8 @@ class Identifier;
 class ClassAccess;
 class IndexAccess;
 class FunctionCall;
+class Return;
+class Assign;
 
 class Visitor{
 public:
@@ -34,11 +37,12 @@ public:
     virtual void visit_class_access(ClassAccess &) {}
     virtual void visit_index_access(IndexAccess &) {}
     virtual void visit_function_call(FunctionCall &) {}
+    virtual void visit_return_stmt(Return &) {}
+    virtual void visit_assign_stmt(Assign &) {}
 };
 
 class Node{
 public:
-    Node (TokenRange tokens) : tokens(tokens), parent(NULL) {}
     Node (TokenRange tokens, std::shared_ptr<Node> parent, unsigned int presedence) : tokens(tokens), parent(parent), presedence(presedence) {}
     TokenRange tokens;
     std::shared_ptr<Node> parent;
@@ -58,7 +62,6 @@ public:
 
 class Expression : public Node {
 public:
-    Expression (TokenRange tokens) : Node(tokens) {}
     Expression (TokenRange tokens, std::shared_ptr<Node> parent, unsigned int presedence) : Node(tokens, parent, presedence) {}
 
 };
@@ -267,6 +270,63 @@ public:
     }
 private:
     FunctionCall(std::shared_ptr<Access> name, TokenRange tokens, std::shared_ptr<Node> parent, std::vector<std::shared_ptr<Expression>> parameters) : Access(tokens, parent), name(name), parameters(parameters) {}
+};
+
+class Statement : public Node {
+public:
+    Statement(TokenRange tokens, std::shared_ptr<Node> parent, unsigned int presedence) : Node(tokens, parent, presedence) {}
+};
+
+class Return : public Statement {
+public:
+    static std::shared_ptr<Return> create(std::shared_ptr<Expression> expr, TokenRange tokens, std::shared_ptr<Node> parent);
+
+    std::shared_ptr<Expression> expr;
+
+    std::shared_ptr<Node> get_left_child() override {
+        return expr;
+    }
+    std::shared_ptr<Node> get_right_child() override {
+        return expr;
+    }
+    void set_left_child(std::shared_ptr<Node> node) override {
+        expr = std::dynamic_pointer_cast<Expression>(node);
+    }
+    void set_right_child(std::shared_ptr<Node> node) override {
+        expr = std::dynamic_pointer_cast<Expression>(node);
+    }
+    void visit(Visitor &visitor) override {
+        visitor.visit_return_stmt(*this);
+    }
+private:
+    Return(std::shared_ptr<Expression> expr, std::shared_ptr<Node> parent, TokenRange tokens) : Statement(tokens, parent, STMT_PRESEDENCE), expr(expr) {}
+};
+
+class Assign: public Statement {
+public:
+    static std::shared_ptr<Assign> create(std::shared_ptr<Access> location, std::shared_ptr<Expression> expr, std::shared_ptr<Node> parent, TokenRange tokens);
+
+    std::shared_ptr<Access> location;
+    std::shared_ptr<Expression> expr;
+    
+
+    std::shared_ptr<Node> get_left_child() override {
+        return location;
+    }
+    std::shared_ptr<Node> get_right_child() override {
+        return expr;
+    }
+    void set_left_child(std::shared_ptr<Node> node) override {
+        location = std::dynamic_pointer_cast<Access>(node);
+    }
+    void set_right_child(std::shared_ptr<Node> node) override {
+        expr = std::dynamic_pointer_cast<Expression>(node);
+    }
+    void visit(Visitor &visitor) override {
+        visitor.visit_assign_stmt(*this);
+    }
+private:
+    Assign(std::shared_ptr<Access> location, std::shared_ptr<Expression> expr, std::shared_ptr<Node> parent, TokenRange tokens) : Statement(tokens, parent, STMT_PRESEDENCE), location(location), expr(expr) {}
 };
 
 }

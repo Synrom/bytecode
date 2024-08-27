@@ -10,16 +10,14 @@ void BinaryOp::execute(Environment &env) {
     env.push(perform_op(left, right));
 }
 
-Value Add::perform_op(const Value &left, const Value &right) {
-    return Value::add(left, right);
-}
-
 void PushValue::execute(Environment &env) {
     env.push(value);
 }
 
 Value Code::run() {
     Environment env;
+    for(int i = 0;i < num_variables; i++)
+        env.stack.push_back(Value::create_void());
     for(auto bytecode = bytecodes.rbegin(); bytecode != bytecodes.rend(); bytecode++)
         bytecode->get()->execute(env);
     if (!env.is_empty())
@@ -44,4 +42,14 @@ Value Environment::pop() {
 void Code::print() {
     for(auto bytecode = bytecodes.rbegin(); bytecode != bytecodes.rend(); bytecode++)
         bytecode->get()->print();
+}
+
+void PushVariable::execute(Environment &env) {
+    Value v = env.stack[offset];
+    env.push(v);
+}
+
+void SetVariable::execute(Environment &env) {
+    Value v = env.pop();
+    env.stack[offset] = v;
 }

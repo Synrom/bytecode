@@ -21,6 +21,22 @@ std::shared_ptr<UnaryOp> UnaryOp::create(std::shared_ptr<Expression> expr, Token
     return ast;
 }
 
+std::shared_ptr<Return> Return::create(std::shared_ptr<Expression> expr, TokenRange tokens, std::shared_ptr<Node> parent) {
+    std::shared_ptr<Return> ast = std::shared_ptr<Return>(new Return(expr, parent, tokens));
+    if (expr)
+        expr->parent = ast;
+    return ast;
+}
+
+std::shared_ptr<Assign> Assign::create(std::shared_ptr<Access> location, std::shared_ptr<Expression> expr, std::shared_ptr<Node> parent, TokenRange tokens) {
+    std::shared_ptr<Assign> ast = std::shared_ptr<Assign>(new Assign(location, expr, parent, tokens));
+    if (expr)
+        expr->parent = ast;
+    if (location)
+        location->parent = ast;
+    return ast;
+}
+
 std::shared_ptr<ClassAccess> ClassAccess::create(std::shared_ptr<Access> left, std::shared_ptr<Access> right, TokenRange tokens, std::shared_ptr<Node> parent) {
     std::shared_ptr<ClassAccess> ast = std::shared_ptr<ClassAccess>(new ClassAccess(left, right, tokens, parent));
     if (left)
@@ -92,6 +108,13 @@ void AstPrinter::visit_binary_op(BinaryOp &node) {
     decrease_indentation();
 }
 
+void AstPrinter::visit_return_stmt(Return &node) {
+    print_node("Return", node.tokens);
+    increase_indentation();
+    node.expr->visit(*this);
+    decrease_indentation();
+}
+
 void AstPrinter::visit_unary_op(UnaryOp &node) {
     print_node("UnaryOp", node.tokens);
     increase_indentation();
@@ -116,6 +139,14 @@ void AstPrinter::visit_class_access(ClassAccess &node) {
     increase_indentation();
     node.left->visit(*this);
     node.right->visit(*this);
+    decrease_indentation();
+}
+
+void AstPrinter::visit_assign_stmt(Assign &node) {
+    print_node("Assign", node.tokens);
+    increase_indentation();
+    node.location->visit(*this);
+    node.expr->visit(*this);
     decrease_indentation();
 }
 
