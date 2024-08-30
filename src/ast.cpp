@@ -37,6 +37,20 @@ std::shared_ptr<Assign> Assign::create(std::shared_ptr<Access> location, std::sh
     return ast;
 }
 
+std::shared_ptr<Block> Block::create(std::vector<std::shared_ptr<Statement>> statements, TokenRange tokens, std::shared_ptr<Node> parent) {
+    std::shared_ptr<Block> ast = std::shared_ptr<Block>(new Block(statements, tokens, parent));
+    for (auto statement = statements.begin(); statement != statements.end(); statement++)
+        statement->get()->parent = ast;
+    return ast;
+}
+
+std::shared_ptr<FunctionDefinition> FunctionDefinition::create(std::shared_ptr<Block> block, std::vector<std::shared_ptr<Identifier>> parameters, std::shared_ptr<Identifier> name, TokenRange tokens, std::shared_ptr<Node> parent) {
+    std::shared_ptr<FunctionDefinition> ast = std::shared_ptr<FunctionDefinition>(new FunctionDefinition(block, parameters, name, tokens, parent));
+    if (block)
+        block->parent = ast;
+    return ast;    
+}
+
 std::shared_ptr<ClassAccess> ClassAccess::create(std::shared_ptr<Access> left, std::shared_ptr<Access> right, TokenRange tokens, std::shared_ptr<Node> parent) {
     std::shared_ptr<ClassAccess> ast = std::shared_ptr<ClassAccess>(new ClassAccess(left, right, tokens, parent));
     if (left)
@@ -46,6 +60,11 @@ std::shared_ptr<ClassAccess> ClassAccess::create(std::shared_ptr<Access> left, s
     return ast;
 }
 
+std::shared_ptr<File> File::create(std::string filename, TokenRange tokens) {
+    std::shared_ptr<File> file = std::shared_ptr<File>(new File(filename, tokens));
+    file->code = Block::create(tokens, file);
+    return file;
+}
 
 std::shared_ptr<IndexAccess> IndexAccess::create(std::shared_ptr<Access> left, std::shared_ptr<Expression> index, TokenRange tokens, std::shared_ptr<Node> parent) {
     std::shared_ptr<IndexAccess> ast = std::shared_ptr<IndexAccess>(new IndexAccess(left, index, tokens, parent));
@@ -166,6 +185,40 @@ void AstPrinter::visit_function_call(FunctionCall &node) {
         parameter->visit(*this);
     }
     decrease_indentation();
+}
+
+void AstPrinter::visit_function_definition(FunctionDefinition &node) {
+    std::string identifier = std::string("FunctionDefinition \"") + node.name->token.literal() + "\"";
+    print_node(identifier.c_str(), node.tokens);
+    std::cout << "(\n";
+    increase_indentation();
+    for (auto parameter = node.parameters.begin(); parameter != node.parameters.end(); parameter++) {
+        parameter->get()->visit(*this);
+    }
+    std::cout << ")\n";
+    node.block->visit(*this);
+    decrease_indentation();
+}
+
+void AstPrinter::visit_block_stmt(Block &node) {
+    print_node("Block", node.tokens);
+    increase_indentation();
+    for(auto stmt : node.statements) {
+        stmt->visit(*this);
+    }
+    decrease_indentation();
+}
+
+void AstPrinter::visit_file(ast::File &node) {
+    std::cout << "AST of file " << node.filename << ":\n";
+    if (not node.functions.empty())
+        std::cout << "Functions:\n\n";
+    for (auto function = node.functions.begin(); function != node.functions.end(); function++) {
+        function->get()->visit(*this);
+        std::cout << "\n";
+    }
+    std::cout << "Root scope code:\n";
+    node.code->visit(*this);
 }
 
 void Node::print() {

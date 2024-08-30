@@ -32,6 +32,9 @@ public:
     void visit_function_call(FunctionCall &node) override;
     void visit_return_stmt(Return &node) override;
     void visit_assign_stmt(Assign &node) override;
+    void visit_block_stmt(ast::Block &) override;
+    void visit_function_definition(ast::FunctionDefinition &) override;
+    void visit_file(ast::File &) override;
 };
 
 #endif

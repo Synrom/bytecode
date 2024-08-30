@@ -19,16 +19,56 @@ std::shared_ptr<ast::Node> expand_leftmost(std::shared_ptr<ast::Node> root, std:
     return root;
 }
 
-std::vector<std::shared_ptr<ast::Statement>> Parser::parse_block() {
+std::shared_ptr<ast::File> Parser::parse_file() {
+    while (position < tokens->tokens.size()) {
+        if (parse_string("def")) {
+            TokenRange range = start_token_range();
+            std::shared_ptr<ast::Identifier> fname = parse_identifier();
+            parse_char_or_panic('(');
+            std::vector<std::shared_ptr<ast::Identifier>> fparameters;
+            while (!parse_char(')')) {
+                if (not fparameters.empty())
+                    parse_char_or_panic(',');
+                fparameters.push_back(parse_identifier());
+            }
+            parse_char_or_panic(':');
+            parse_newline_or_panic();
+            increase_indentation();
+            std::shared_ptr<ast::Block> fblock = parse_block();
+            decrease_indentation();
+            end_token_range(range);
+            std::shared_ptr<ast::FunctionDefinition> function = ast::FunctionDefinition::create(
+                fblock,
+                fparameters,
+                fname,
+                range,
+                file
+            );
+            file->functions.push_back(function);
+        } else if (parse_newline()) {
+        } else {
+            file->code->statements.push_back(parse_statement());
+            if (position < tokens->tokens.size())
+                parse_newline();
+        }
+    }
+    return file;
+}
+
+std::shared_ptr<ast::Block> Parser::parse_block() {
     bool seperated = true;
+    TokenRange range = start_token_range();
     std::vector<std::shared_ptr<ast::Statement>> block;
     while (seperated) {
         seperated = false;
+        if (!parse_indentation())
+            break;
         block.push_back(parse_statement());
         seperated = parse_newline();
         while(parse_newline()) ;
     }
-    return block;
+    end_token_range(range);
+    return ast::Block::create(block, range, NULL);
 }
 
 std::shared_ptr<ast::Statement> Parser::parse_statement() {
@@ -149,11 +189,11 @@ std::shared_ptr<ast::Access> Parser::parse_access(std::shared_ptr<ast::Access> c
     return chain;
 }
 
-std::shared_ptr<ast::Access> Parser::parse_identifier() {
+std::shared_ptr<ast::Identifier> Parser::parse_identifier() {
     TokenRange range = start_token_range();
     Token &token = parse_token();
     end_token_range(range);
-    return std::shared_ptr<ast::Access>(new ast::Identifier(token, range, NULL));
+    return std::shared_ptr<ast::Identifier>(new ast::Identifier(token, range, NULL));
 }
 
 bool Parser::parse_char(char c) {
@@ -188,6 +228,12 @@ void Parser::parse_char_or_panic(char c) {
     std::cout << "Panic: Parser error" << std::endl;
 }
 
+void Parser::parse_newline_or_panic() {
+    if(parse_newline())
+        return;
+    std::cout << "Panic: Parser error" << std::endl;
+}
+
 void Parser::increase() {
     position++;
 }
@@ -210,4 +256,23 @@ bool Parser::parse_newline() {
         return true;
     }
     return false;
+}
+
+bool Parser::parse_indentation() {
+    /* First check that we have enough indentation tokens */
+    for (int i = 0; i < indentation; i++) {
+        if (position + i >= tokens->tokens.size() or tokens->tokens[position + i].type != Token::Indentation) 
+            return false;
+    }
+    /* Then actually parse the indentation tokens */
+    for (int i = 0; i < indentation; i++) parse_token();
+    return true;
+}
+
+void Parser::increase_indentation() {
+    indentation++;
+}
+
+void Parser::decrease_indentation() {
+    indentation--;
 }

@@ -1,0 +1,6 @@
+def my_function(a, b):
+  return a - b
+
+a = 20
+c = my_function(10, a)
+return c

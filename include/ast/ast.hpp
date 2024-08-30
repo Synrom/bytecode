@@ -13,6 +13,8 @@
 #define FACTOR_PRESEDENCE 3
 #define SUM_PRESEDENCE 3
 #define STMT_PRESEDENCE 4
+#define FUNCTION_CLASS_PRESEDENCE 5
+#define FILE_PRESEDENCE 6
 
 namespace ast {
 
@@ -26,6 +28,9 @@ class IndexAccess;
 class FunctionCall;
 class Return;
 class Assign;
+class Block;
+class FunctionDefinition;
+class File;
 
 class Visitor{
 public:
@@ -39,6 +44,9 @@ public:
     virtual void visit_function_call(FunctionCall &) {}
     virtual void visit_return_stmt(Return &) {}
     virtual void visit_assign_stmt(Assign &) {}
+    virtual void visit_block_stmt(Block &) {}
+    virtual void visit_function_definition(FunctionDefinition &) {}
+    virtual void visit_file(File &) {}
 };
 
 class Node{
@@ -144,6 +152,7 @@ class Literal: public Expression{
 public:
     const Token &token;
     Literal(const Token &token, TokenRange tokens, std::shared_ptr<Node> parent) :  Expression(tokens, parent, LITERAL_PRESEDENCDE), token(token) {}
+    Literal(const Token &token, TokenRange tokens, std::shared_ptr<Node> parent, unsigned int presedence) :  Expression(tokens, parent, presedence), token(token) {}
 
     std::shared_ptr<Node> get_left_child() override {
         return NULL;
@@ -327,6 +336,83 @@ public:
     }
 private:
     Assign(std::shared_ptr<Access> location, std::shared_ptr<Expression> expr, std::shared_ptr<Node> parent, TokenRange tokens) : Statement(tokens, parent, STMT_PRESEDENCE), location(location), expr(expr) {}
+};
+
+class Block: public Statement {
+public:
+    std::vector<std::shared_ptr<Statement>> statements;
+
+    static std::shared_ptr<Block> create(std::vector<std::shared_ptr<Statement>> statements, TokenRange tokens, std::shared_ptr<Node> parent);
+    static std::shared_ptr<Block> create(TokenRange tokens, std::shared_ptr<Node> parent) {
+        return create(std::vector<std::shared_ptr<Statement>>{}, tokens, parent);
+    }
+
+    std::shared_ptr<Node> get_left_child() override {
+        return statements.front();
+    }
+    std::shared_ptr<Node> get_right_child() override {
+        return statements.back();
+    }
+
+    void set_right_child(std::shared_ptr<Node> node) override {
+        statements.push_back(std::dynamic_pointer_cast<Statement>(node));
+    }
+    void visit(Visitor &visitor) override {
+        visitor.visit_block_stmt(*this);
+    }
+private:
+    Block(std::vector<std::shared_ptr<Statement>> statements, TokenRange tokens, std::shared_ptr<Node> parent) : Statement(tokens, parent, STMT_PRESEDENCE), statements(statements) {}
+};
+
+class FunctionDefinition: public Statement {
+public:
+    std::shared_ptr<Block> block;
+    std::shared_ptr<Identifier> name;
+    std::vector<std::shared_ptr<Identifier>> parameters;
+
+    static std::shared_ptr<FunctionDefinition> create(std::shared_ptr<Block> block, std::vector<std::shared_ptr<Identifier>> parameters, std::shared_ptr<Identifier> name, TokenRange tokens, std::shared_ptr<Node> parent);
+
+    std::shared_ptr<Node> get_left_child() override {
+        return block;
+    }
+    std::shared_ptr<Node> get_right_child() override {
+        return block;
+    }
+    void set_left_child(std::shared_ptr<Node> node) override {
+        block = std::dynamic_pointer_cast<Block>(node);
+    }
+    void set_right_child(std::shared_ptr<Node> node) override {
+        block = std::dynamic_pointer_cast<Block>(node);
+    }
+    void visit(Visitor &visitor) override {
+        visitor.visit_function_definition(*this);
+    }
+private:
+
+    FunctionDefinition(std::shared_ptr<Block> block, std::vector<std::shared_ptr<Identifier>> parameters, std::shared_ptr<Identifier> name, TokenRange tokens, std::shared_ptr<Node> parent) : Statement(tokens, parent, FUNCTION_CLASS_PRESEDENCE), block(block), name(name), parameters(parameters) {}
+};
+
+class File: public Node {
+public:
+    static std::shared_ptr<File> create(std::string filename, TokenRange tokens);
+
+    std::string filename;
+    std::vector<std::shared_ptr<FunctionDefinition>> functions;
+    std::shared_ptr<Block> code;
+
+    void visit(Visitor &visitor) override {
+        visitor.visit_file(*this);
+    };
+    virtual std::shared_ptr<Node> get_left_child() {
+        std::cout << "Error: File does not have a clear left child\n";
+        return NULL;
+    }
+    virtual std::shared_ptr<Node> get_right_child() {
+        std::cout << "Error: File does not have a clear right child\n";
+        return NULL;
+    }
+private:
+    File(std::string filename, TokenRange tokens) : Node(tokens, NULL, FILE_PRESEDENCE), filename(filename) {}
 };
 
 }

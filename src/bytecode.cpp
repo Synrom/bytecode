@@ -25,31 +25,33 @@ int main(int argc, char* argv[])
     /* Lex program and print tokens */
     Lexer lexer(code_string, argv[1]);
     lexer.parse();
-    cout << "Lexemes:" << endl;
+    std::cout << "Lexemes:" << endl;
     lexer.tokens->print();
-    cout << endl;
-    cout << endl;
+    std::cout << endl;
+    std::cout << endl;
 
     /* Parse an expression */
     Parser parser = Parser(lexer.tokens);
-    vector<shared_ptr<ast::Statement>> block = parser.parse_block();
-    cout << "AST:" << endl;
-    for(auto stmt = block.begin(); stmt != block.end(); stmt++) {
-        stmt->get()->print();
-    }
-    cout << endl;
+    shared_ptr<ast::File> file_ast = parser.parse_file();
+    std::cout << "AST:" << endl;
+    file_ast->print();
+    std::cout << endl;
 
     /* Compile AST to Bytecode */
     BytecodeCompiler compiler;
-    compiler.compile(block);
-    runtime::Code code = compiler.code();
-    cout << "Bytecodes:" << endl;
-    code.print();
-    cout << endl;
+    file_ast->visit(compiler);
+    std::shared_ptr<runtime::Code> code = compiler.code();
+    std::cout << "Bytecodes:" << endl;
+    code->print();
+    std::cout << endl;
+
+    std::cout << "Bytecode of Functions:" << endl;
+    for (auto func = compiler.functions.begin(); func != compiler.functions.end(); func++) 
+        func->get()->print();
 
     /* execute code */
-    runtime::Value result = code.run();
-    cout << "Ran code with result: " << result.to_string() << endl;
+    runtime::Value result = code->run();
+    std::cout << "Ran code with result: " << result.to_string() << endl;
 
     return 0;
 }
