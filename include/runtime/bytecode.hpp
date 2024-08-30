@@ -80,7 +80,7 @@ public:
     void execute(Environment &env) override;
     PushVariable(ssize_t offset) : offset(offset) {}
     void print () {
-        std::cout << "PushVariable " << offset << std::endl;
+        std::cout << "PushVariable %" << offset << std::endl;
     }
 
 private:
@@ -92,7 +92,7 @@ public:
     void execute(Environment &env) override;
     SetVariable(ssize_t offset) : offset(offset) {}
     void print () {
-        std::cout << "SetVariable " << offset << std::endl;
+        std::cout << "SetVariable %" << offset << std::endl;
     }
 
 private:
