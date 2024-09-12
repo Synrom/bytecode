@@ -1,1 +1,9 @@
-add.tokens.index.start()
+class Adder:
+  def __init__(self, a):
+    self.a = a
+
+  def add(self, num):
+    return self.a + num
+  
+myadder = Adder(10)
+myadder.add(20)

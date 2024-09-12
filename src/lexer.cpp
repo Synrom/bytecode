@@ -101,6 +101,7 @@ void Lexer::parse_indentation() {
                 increase_position();
                 if(get(pos) == ' ') {
                     submit_location_record(location, Token::Indentation);
+                    increase_position();
                 } else {
                     // TODO: maybe throw an exception here
                 }

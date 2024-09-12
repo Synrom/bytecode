@@ -60,6 +60,26 @@ std::shared_ptr<ClassAccess> ClassAccess::create(std::shared_ptr<Access> left, s
     return ast;
 }
 
+std::shared_ptr<MethodDefinition> MethodDefinition::from_function(std::shared_ptr<FunctionDefinition> func, std::shared_ptr<ClassDefinition> class_definition) {
+    return std::shared_ptr<MethodDefinition>(new MethodDefinition(
+        class_definition,
+        func->block,
+        func->parameters,
+        func->name,
+        func->tokens,
+        class_definition
+    ));
+}
+
+std::shared_ptr<ClassDefinition> ClassDefinition::create(std::vector<std::shared_ptr<FunctionDefinition>> functions, std::string name, TokenRange tokens, std::shared_ptr<Node> parent) {
+    std::shared_ptr<ClassDefinition> ast = std::shared_ptr<ClassDefinition>(new ClassDefinition(std::vector<std::shared_ptr<MethodDefinition>>(), name, tokens, parent));
+    for(auto function : functions) {
+        auto method = ast::MethodDefinition::from_function(function, ast);
+        ast->methods.push_back(method);
+    }
+    return ast;
+}
+
 std::shared_ptr<File> File::create(std::string filename, TokenRange tokens) {
     std::shared_ptr<File> file = std::shared_ptr<File>(new File(filename, tokens));
     file->code = Block::create(tokens, file);
@@ -75,10 +95,12 @@ std::shared_ptr<IndexAccess> IndexAccess::create(std::shared_ptr<Access> left, s
     return ast;
 }
 
-std::shared_ptr<FunctionCall> FunctionCall::create(std::shared_ptr<Access> name, TokenRange tokens, std::shared_ptr<Node> parent, std::vector<std::shared_ptr<Expression>> parameters) {
+std::shared_ptr<FunctionCall> FunctionCall::create(std::shared_ptr<Identifier> name, TokenRange tokens, std::shared_ptr<Node> parent, std::vector<std::shared_ptr<Expression>> parameters) {
     std::shared_ptr<FunctionCall> ast = std::shared_ptr<FunctionCall>(new FunctionCall(name, tokens, parent, parameters));
-    if (name)
-        name->parent = ast;
+    if (name) {
+        name->Access::parent = ast;
+        name->Literal::parent = ast;
+    }
     return ast;
 }
 
@@ -200,6 +222,21 @@ void AstPrinter::visit_function_definition(FunctionDefinition &node) {
     decrease_indentation();
 }
 
+void AstPrinter::visit_method_definition(MethodDefinition &node) {
+    std::string identifier = std::string("MethodDefinition \"") + node.name->token.literal() + "\"";
+    print_node(identifier.c_str(), node.tokens);
+    std::cout << indentation << "(\n";
+    increase_indentation();
+    for (auto parameter = node.parameters.begin(); parameter != node.parameters.end(); parameter++) {
+        parameter->get()->visit(*this);
+    }
+    decrease_indentation();
+    std::cout << indentation << ")\n";
+    increase_indentation();
+    node.block->visit(*this);
+    decrease_indentation();
+}
+
 void AstPrinter::visit_block_stmt(Block &node) {
     print_node("Block", node.tokens);
     increase_indentation();
@@ -209,8 +246,23 @@ void AstPrinter::visit_block_stmt(Block &node) {
     decrease_indentation();
 }
 
+void AstPrinter::visit_class_definition(ast::ClassDefinition &class_definition) {
+    std::string identifier = std::string("ClassDefinition \"") + class_definition.name + "\"";
+    print_node(identifier.c_str(), class_definition.tokens);
+    increase_indentation();
+    for(auto method: class_definition.methods)
+        method->visit(*this);
+    decrease_indentation();
+}
+
 void AstPrinter::visit_file(ast::File &node) {
     std::cout << "AST of file " << node.filename << ":\n";
+    if (not node.classes.empty()) 
+        std::cout << "Classes:\n\n";
+    for (auto class_def = node.classes.begin(); class_def != node.classes.end(); class_def++) {
+        class_def->get()->visit(*this);
+        std::cout << "\n";
+    }
     if (not node.functions.empty())
         std::cout << "Functions:\n\n";
     for (auto function = node.functions.begin(); function != node.functions.end(); function++) {

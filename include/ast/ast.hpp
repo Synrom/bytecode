@@ -2,10 +2,10 @@
 #define AST_H
 
 #include "lexer/tokens.hpp"
-#include "runtime/bytecode.hpp"
 
 #include <memory>
 #include <vector>
+#include <iostream>
 
 #define ACCESS_PRESEDENCDE 1
 #define LITERAL_PRESEDENCDE 1
@@ -14,7 +14,8 @@
 #define SUM_PRESEDENCE 3
 #define STMT_PRESEDENCE 4
 #define FUNCTION_CLASS_PRESEDENCE 5
-#define FILE_PRESEDENCE 6
+#define CLASS_PRESEDENCE 6
+#define FILE_PRESEDENCE 7
 
 namespace ast {
 
@@ -30,6 +31,8 @@ class Return;
 class Assign;
 class Block;
 class FunctionDefinition;
+class MethodDefinition;
+class ClassDefinition;
 class File;
 
 class Visitor{
@@ -46,6 +49,8 @@ public:
     virtual void visit_assign_stmt(Assign &) {}
     virtual void visit_block_stmt(Block &) {}
     virtual void visit_function_definition(FunctionDefinition &) {}
+    virtual void visit_method_definition(MethodDefinition &) {}
+    virtual void visit_class_definition(ClassDefinition &) {}
     virtual void visit_file(File &) {}
 };
 
@@ -68,10 +73,14 @@ public:
     void print();
 };
 
-class Expression : public Node {
+class Statement : public Node {
 public:
-    Expression (TokenRange tokens, std::shared_ptr<Node> parent, unsigned int presedence) : Node(tokens, parent, presedence) {}
+    Statement(TokenRange tokens, std::shared_ptr<Node> parent, unsigned int presedence) : Node(tokens, parent, presedence) {}
+};
 
+class Expression : public Statement {
+public:
+    Expression (TokenRange tokens, std::shared_ptr<Node> parent, unsigned int presedence) : Statement(tokens, parent, presedence) {}
 };
 
 class BinaryOp : public Expression {
@@ -259,9 +268,9 @@ private:
 
 class FunctionCall : public Access {
 public:
-    static std::shared_ptr<FunctionCall> create(std::shared_ptr<Access> name, TokenRange tokens, std::shared_ptr<Node> parent, std::vector<std::shared_ptr<Expression>> parameters);
+    static std::shared_ptr<FunctionCall> create(std::shared_ptr<Identifier> name, TokenRange tokens, std::shared_ptr<Node> parent, std::vector<std::shared_ptr<Expression>> parameters);
 
-    std::shared_ptr<Access> name;
+    std::shared_ptr<Identifier> name;
     std::vector<std::shared_ptr<Expression>> parameters;
 
     void visit(Visitor &visitor) override {
@@ -269,22 +278,18 @@ public:
     }
 
     std::shared_ptr<Node> get_left_child() override {
-        return name;
+        return std::shared_ptr<Access>(name);
     }
     std::shared_ptr<Node> get_right_child() override {
         return NULL;
     }
     void set_left_child(std::shared_ptr<Node> node) override {
-        name = std::dynamic_pointer_cast<Access>(node);
+        name = std::dynamic_pointer_cast<Identifier>(node);
     }
 private:
-    FunctionCall(std::shared_ptr<Access> name, TokenRange tokens, std::shared_ptr<Node> parent, std::vector<std::shared_ptr<Expression>> parameters) : Access(tokens, parent), name(name), parameters(parameters) {}
+    FunctionCall(std::shared_ptr<Identifier> name, TokenRange tokens, std::shared_ptr<Node> parent, std::vector<std::shared_ptr<Expression>> parameters) : Access(tokens, parent), name(name), parameters(parameters) {}
 };
 
-class Statement : public Node {
-public:
-    Statement(TokenRange tokens, std::shared_ptr<Node> parent, unsigned int presedence) : Node(tokens, parent, presedence) {}
-};
 
 class Return : public Statement {
 public:
@@ -387,7 +392,7 @@ public:
     void visit(Visitor &visitor) override {
         visitor.visit_function_definition(*this);
     }
-private:
+protected:
 
     FunctionDefinition(std::shared_ptr<Block> block, std::vector<std::shared_ptr<Identifier>> parameters, std::shared_ptr<Identifier> name, TokenRange tokens, std::shared_ptr<Node> parent) : Statement(tokens, parent, FUNCTION_CLASS_PRESEDENCE), block(block), name(name), parameters(parameters) {}
 };
@@ -398,11 +403,12 @@ public:
 
     std::string filename;
     std::vector<std::shared_ptr<FunctionDefinition>> functions;
+    std::vector<std::shared_ptr<ClassDefinition>> classes;
     std::shared_ptr<Block> code;
 
     void visit(Visitor &visitor) override {
         visitor.visit_file(*this);
-    };
+    }
     virtual std::shared_ptr<Node> get_left_child() {
         std::cout << "Error: File does not have a clear left child\n";
         return NULL;
@@ -413,6 +419,43 @@ public:
     }
 private:
     File(std::string filename, TokenRange tokens) : Node(tokens, NULL, FILE_PRESEDENCE), filename(filename) {}
+};
+
+class MethodDefinition: public FunctionDefinition{
+public:
+    std::shared_ptr<ClassDefinition> class_definition;
+    static std::shared_ptr<MethodDefinition> from_function(std::shared_ptr<FunctionDefinition> func, std::shared_ptr<ClassDefinition> class_definition);
+
+    void visit(Visitor &visitor) override {
+        visitor.visit_method_definition(*this);
+    }
+
+private:
+    MethodDefinition(std::shared_ptr<ClassDefinition> class_definition, std::shared_ptr<Block> block, std::vector<std::shared_ptr<Identifier>> parameters, std::shared_ptr<Identifier> name, TokenRange tokens, std::shared_ptr<Node> parent) :
+        FunctionDefinition(block, parameters, name, tokens, parent), class_definition(class_definition) {}
+};
+
+class ClassDefinition: public Statement {
+public:
+    static std::shared_ptr<ClassDefinition> create(std::vector<std::shared_ptr<FunctionDefinition>> functions, std::string name, TokenRange tokens, std::shared_ptr<Node> parent);
+
+    std::string name;
+    std::vector<std::shared_ptr<MethodDefinition>> methods;
+
+    void visit(Visitor &visitor) override {
+        visitor.visit_class_definition(*this);
+    }
+    virtual std::shared_ptr<Node> get_left_child() {
+        std::cout << "Error: Class does not have a clear left child\n";
+        return NULL;
+    }
+    virtual std::shared_ptr<Node> get_right_child() {
+        std::cout << "Error: Class does not have a clear right child\n";
+        return NULL;
+    }
+
+private:
+    ClassDefinition(std::vector<std::shared_ptr<MethodDefinition>> methods, std::string name, TokenRange tokens, std::shared_ptr<Node> parent) : Statement(tokens, parent, CLASS_PRESEDENCE), name(name), methods(methods) {}
 };
 
 }

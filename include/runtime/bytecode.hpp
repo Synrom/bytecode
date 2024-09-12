@@ -2,6 +2,8 @@
 #define BYTECODE_H
 
 #include "environment.hpp"
+#include "ast/ast.hpp"
+#include "value.hpp"
 
 #include <iostream>
 
@@ -87,16 +89,47 @@ private:
     size_t offset;
 };
 
-class SetVariable: public Bytecode {
+class Set: public Bytecode {
 public:
     void execute(Environment &env) override;
-    SetVariable(ssize_t offset) : offset(offset) {}
     void print () {
-        std::cout << "SetVariable %" << offset << std::endl;
+        std::cout << "Set" << std::endl;
+    }
+};
+
+class PushLValue : public Bytecode {
+public:
+    void execute(Environment &env) override;
+    PushLValue(ssize_t offset) : offset(offset) {}
+    void print () {
+        std::cout << "PushLValue %" << offset <<  std::endl;
     }
 
 private:
-    size_t offset;
+    ssize_t offset;
+
+};
+
+class ObjectAccessLValue: public Bytecode {
+public:
+    void execute(Environment &env) override;
+    ObjectAccessLValue(ast::Identifier identifier) : identifier(identifier.token.literal()) {}
+    void print () {
+        std::cout << "ObjectAccess LValue <" << identifier <<  ">\n";
+    }
+private:
+    std::string identifier;
+};
+
+class ObjectAccess : public Bytecode {
+public:
+    void execute(Environment &env) override;
+    ObjectAccess(ast::Identifier identifier) : identifier(identifier.token.literal()) {}
+    void print () {
+        std::cout << "ObjectAccess <" << identifier <<  ">\n";
+    }
+private:
+    std::string identifier;
 };
 
 }

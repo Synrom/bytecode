@@ -19,33 +19,64 @@ std::shared_ptr<ast::Node> expand_leftmost(std::shared_ptr<ast::Node> root, std:
     return root;
 }
 
+std::shared_ptr<ast::FunctionDefinition> Parser::parse_function() {
+    TokenRange range = start_token_range();
+    if (!parse_indentation() or !parse_string("def"))
+        return NULL;
+    std::shared_ptr<ast::Identifier> fname = parse_identifier();
+    parse_char_or_panic('(');
+    std::vector<std::shared_ptr<ast::Identifier>> fparameters;
+    while (!parse_char(')')) {
+        if (not fparameters.empty())
+            parse_char_or_panic(',');
+        fparameters.push_back(parse_identifier());
+    }
+    parse_char_or_panic(':');
+    parse_newline_or_panic();
+    increase_indentation();
+    std::shared_ptr<ast::Block> fblock = parse_block();
+    decrease_indentation();
+    end_token_range(range);
+    return ast::FunctionDefinition::create(
+        fblock,
+        fparameters,
+        fname,
+        range,
+        NULL
+    );
+}
+
 std::shared_ptr<ast::File> Parser::parse_file() {
     while (position < tokens->tokens.size()) {
         if (parse_string("def")) {
+            decrease();
+            std::shared_ptr<ast::FunctionDefinition> function = parse_function();
+            file->functions.push_back(function);
+            function->parent = file;
+        } else if (parse_string("class")) {
             TokenRange range = start_token_range();
-            std::shared_ptr<ast::Identifier> fname = parse_identifier();
-            parse_char_or_panic('(');
-            std::vector<std::shared_ptr<ast::Identifier>> fparameters;
-            while (!parse_char(')')) {
-                if (not fparameters.empty())
-                    parse_char_or_panic(',');
-                fparameters.push_back(parse_identifier());
-            }
+            std::shared_ptr<ast::Identifier> cname = parse_identifier();
             parse_char_or_panic(':');
             parse_newline_or_panic();
             increase_indentation();
-            std::shared_ptr<ast::Block> fblock = parse_block();
+            std::vector<std::shared_ptr<ast::FunctionDefinition>> functions;
+            /* TODO: parse class methods */
+            while (parse_newline());
+            std::shared_ptr<ast::FunctionDefinition> func;
+            while (func = parse_function()) {
+                functions.push_back(func);
+                while (parse_newline());
+            }
             decrease_indentation();
             end_token_range(range);
-            std::shared_ptr<ast::FunctionDefinition> function = ast::FunctionDefinition::create(
-                fblock,
-                fparameters,
-                fname,
+            std::shared_ptr<ast::ClassDefinition> class_definition = ast::ClassDefinition::create(
+                functions,
+                cname->token.literal(),
                 range,
                 file
             );
-            file->functions.push_back(function);
-        } else if (parse_newline()) {
+            file->classes.push_back(class_definition);
+        }else if (parse_newline()) {
         } else {
             file->code->statements.push_back(parse_statement());
             if (position < tokens->tokens.size())
@@ -79,11 +110,16 @@ std::shared_ptr<ast::Statement> Parser::parse_statement() {
         end_token_range(range);
         return ast::Return::create(expr, range, NULL);
     }
-    std::shared_ptr<ast::Access> identifier = Parser::parse_identifier_access();
-    parse_char_or_panic('=');
-    std::shared_ptr<ast::Expression> expr = parse_expression();
-    end_token_range(range);
-    return ast::Assign::create(identifier, expr, NULL, range);
+    /* TODO: If, For, While-statements*/
+    std::shared_ptr<ast::Expression> expr = Parser::parse_expression();
+    if (std::shared_ptr<ast::Access> identifier = std::dynamic_pointer_cast<ast::Access>(expr)) {
+        if (parse_char('=')) {
+            std::shared_ptr<ast::Expression> left = parse_expression();
+            end_token_range(range);
+            return ast::Assign::create(identifier, left, NULL, range);
+        }
+    }
+    return expr;
 }
 
 std::shared_ptr<ast::Expression> Parser::parse_expression() {
@@ -183,8 +219,13 @@ std::shared_ptr<ast::Access> Parser::parse_access(std::shared_ptr<ast::Access> c
             parameters.push_back(parse_expression());
         }
         end_token_range(range);
-        std::shared_ptr<ast::Access> fcall = ast::FunctionCall::create(chain, range, NULL, parameters);
-        return parse_access(fcall);
+        if (std::shared_ptr<ast::Identifier> identifier = std::dynamic_pointer_cast<ast::Identifier>(chain)) {
+            std::shared_ptr<ast::Access> fcall = ast::FunctionCall::create(identifier, range, NULL, parameters);
+            return parse_access(fcall);
+        } else {
+            std::cout << "Error: Parser tries to create function call without identifier for:\n";
+            chain->print();
+        }
     }
     return chain;
 }
@@ -236,6 +277,10 @@ void Parser::parse_newline_or_panic() {
 
 void Parser::increase() {
     position++;
+}
+
+void Parser::decrease() {
+    position--;
 }
 
 TokenRange Parser::start_token_range() {

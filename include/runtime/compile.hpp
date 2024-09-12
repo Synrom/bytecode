@@ -5,7 +5,6 @@
 #include "runtime/code.hpp"
 
 class BytecodeCompiler: public ast::Visitor {
-    std::vector<std::shared_ptr<runtime::Code>> compilation_stack;
     std::shared_ptr<runtime::Code> current;
 
     void visit_binary_op(ast::BinaryOp &) override;
@@ -17,14 +16,29 @@ class BytecodeCompiler: public ast::Visitor {
     void visit_function_definition(ast::FunctionDefinition &) override;
     void visit_file(ast::File &) override;
     void visit_function_call(ast::FunctionCall &) override;
+    void visit_class_definition(ast::ClassDefinition &) override;
+    void visit_method_definition(ast::MethodDefinition &) override;
+    void visit_class_access(ast::ClassAccess &) override;
+
+    void visit_constructor(ast::FunctionCall &, std::string);
 
     std::shared_ptr<runtime::Function> find_function(ast::FunctionCall &);
+    std::shared_ptr<runtime::ClassStruct> find_class(const std::string &);
+    void activate_lvalue();
+    void deactivate_lvalue();
+    bool lvalue;
+    void activate_class_access() {
+        class_access++;
+    }
+    void deactivate_class_access() {
+        class_access--;
+    }
+    unsigned int class_access;
 public:
     std::vector<std::shared_ptr<runtime::Function>> functions;
+    std::vector<std::shared_ptr<runtime::ClassStruct>> classes;
     std::shared_ptr<runtime::Code> code();
-    BytecodeCompiler() : current(std::shared_ptr<runtime::Code>(new runtime::Code())) {
-        compilation_stack.push_back(current);
-    }
+    BytecodeCompiler() : current(std::shared_ptr<runtime::Code>(new runtime::Code())), lvalue(false), class_access(0) {}
 };
 
 #endif

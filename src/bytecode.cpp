@@ -48,6 +48,11 @@ int main(int argc, char* argv[])
     std::cout << "Bytecode of Functions:" << endl;
     for (auto func = compiler.functions.begin(); func != compiler.functions.end(); func++) 
         func->get()->print();
+    
+    /* TODO: also print bytecode of classes */
+    std::cout << "Bytecode of Classes:" << endl;
+    for(auto class_struct = compiler.classes.begin(); class_struct != compiler.classes.end(); class_struct++)
+        class_struct->get()->print();
 
     /* execute code */
     runtime::Value result = code->run();

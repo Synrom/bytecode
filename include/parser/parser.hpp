@@ -20,9 +20,10 @@ class Parser{
 public:
     Parser(std::shared_ptr<TokenSequence> tokens) : tokens(tokens), position(0), indentation(0), file(ast::File::create(tokens->filepath, TokenRange(tokens, 0, tokens->tokens.size()))) {}
     std::shared_ptr<ast::File> parse_file();
-    std::shared_ptr<ast::Block> parse_block();
 
 private:
+    std::shared_ptr<ast::Block> parse_block();
+    std::shared_ptr<ast::FunctionDefinition> parse_function();
     std::shared_ptr<ast::Statement> parse_statement();
     std::shared_ptr<ast::Expression> parse_expression();
     std::shared_ptr<ast::Expression> parse_factor();
@@ -45,6 +46,7 @@ private:
     void decrease_indentation();
 
     void increase();
+    void decrease();
     TokenRange start_token_range();
     TokenRange start_token_range(std::shared_ptr<ast::Node> node);
     void end_token_range(TokenRange &range); /* should end with posiition-1*/
